@@ -103,13 +103,20 @@ class Graph:
         self.start = start
         self.end = end
 
-    def neighbors(self, zone_name: str) -> list[Connection]:
+    def neighbors(self, zone_name: str) -> list[str]:
         """Return all connections touching the given zone."""
-        return [
-            c for c in self.connections
-            if c.zone_a == zone_name or c.zone_b == zone_name
-        ]
 
+        neighbors = []
+
+        for connection in self.connections:
+            if connection.zone_a == zone_name:
+                neighbors.append(connection.zone_b)
+            elif connection.zone_b == zone_name:
+                neighbors.append(connection.zone_a)
+        
+        return neighbors
+            
+            
 
 class Drone:
     """A single drone moving from start to end."""
