@@ -78,6 +78,10 @@ class Connection:
         if zone_name == self.zone_a:
             return self.zone_b
         return self.zone_a
+    
+    def name(self) -> str:
+        """Return the display name of this connection, e.g. 'a-b'."""
+        return f"{self.zone_a}-{self.zone_b}"
 
 
 class Graph:
@@ -103,7 +107,7 @@ class Graph:
         self.start = start
         self.end = end
 
-    def neighbors(self, zone_name: str) -> list[str]:
+    def get_neighbors(self, zone_name: str) -> list[str]:
         """Return all connections touching the given zone."""
 
         neighbors = []
@@ -131,6 +135,8 @@ class Drone:
         self.path: list[str] = []
         self.position = 0
         self.delivered = False
+        self.in_transit = False
+        self.transit_turns_left = 0
 
     def current_zone(self) -> str:
         """Return the name of the zone the drone is currently in."""
@@ -171,3 +177,118 @@ class Simulation:
     def run_turn(self) -> None:
         """Advance the simulation by one turn (logic to be filled in)."""
         self.turn += 1
+        
+
+
+class Simulation:
+    """Runs the turn-by-turn simulation of all drones."""
+
+    def __init__(self, graph: Graph, drones: list[Drone]) -> None:
+        """Create the simulation.
+
+        Args:
+            graph: The network of zones and connections.
+            drones: The drones to simulate.
+        """
+        self.graph = graph
+        self.drones = drones
+        self.turn = 0
+        self.log: list[list[str]] = []
+
+    def all_delivered(self) -> bool:
+        """Return True if every drone has reached the end zone."""
+        return all(d.delivered for d in self.drones)
+
+    def run(self) -> None:
+        """Run turns until every drone has been delivered."""
+        while not self.all_delivered():
+            self.run_turn()
+
+    def run_turn(self) -> None:
+        """Advance the simulation by a single turn."""
+        self.turn += 1
+        moves: list[str] = []
+
+        for drone in self.drones:
+            if drone.delivered:
+                continue
+
+            if drone.in_transit:
+                move = self._advance_transit(drone)
+            else:
+                move = self._try_start_move(drone)
+
+            if move is not None:
+                moves.append(move)
+
+        self.log.append(moves)
+
+    def _get_connection(self, zone_a: str, zone_b: str) -> Connection | None:
+        """Find the connection linking two zone names, if one exists."""
+        for connection in self.graph.connections:
+            if {connection.zone_a, connection.zone_b} == {zone_a, zone_b}:
+                return connection
+        return None
+
+    def _try_start_move(self, drone: Drone) -> str | None:
+        next_name = drone.next_zone()
+        if next_name is None:
+            return None
+
+        current_name = drone.current_zone()
+        next_zone = self.graph.zones[next_name]
+        connection = self._get_connection(current_name, next_name)
+
+        if connection is not None and not connection.has_space():
+            return None
+
+        if next_name != self.graph.end and not next_zone.has_space():
+            return None
+
+        if next_zone.zone_type == ZoneType.RESTRICTED:
+            drone.in_transit = True
+            drone.transit_turns_left = 1
+            connection.users.add(drone.id)
+            return f"{drone.id}-{connection.name()}"
+
+        self._commit_arrival(drone, current_name, next_name, connection)
+        return f"{drone.id}-{next_name}"
+
+    def _advance_transit(self, drone: Drone) -> str | None:
+        """Advance a drone that is mid-transit toward a restricted zone.
+
+        Returns:
+            The log entry string once the drone arrives, None otherwise.
+        """
+        drone.transit_turns_left -= 1
+        if drone.transit_turns_left > 0:
+            return None  # still in flight, no log entry this turn
+
+        current_name = drone.current_zone()
+        next_name = drone.next_zone()
+        if next_name is None:
+            return None
+
+        connection = self._get_connection(current_name, next_name)
+        drone.in_transit = False
+        self._commit_arrival(drone, current_name, next_name, connection)
+        return f"{drone.id}-{next_name}"
+
+    def _commit_arrival(
+        self,
+        drone: Drone,
+        current_name: str,
+        next_name: str,
+        connection: Connection | None,
+    ) -> None:
+        """Move a drone into its next zone and update occupancy state."""
+        current_zone = self.graph.zones[current_name]
+        next_zone = self.graph.zones[next_name]
+
+        current_zone.occupants.discard(drone.id)
+        next_zone.occupants.add(drone.id)
+
+        if connection is not None:
+            connection.users.discard(drone.id)
+
+        drone.move_to_next()
