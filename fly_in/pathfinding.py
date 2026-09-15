@@ -31,11 +31,12 @@ def find_path(graph: models.Graph, start: str, end: str) -> list[str]:
             break
 
         for neighbor in graph.get_neighbors(current):
+            neighbor_type = graph.zones[neighbor].zone_type
 
-            if graph.zones[neighbor].zone_type == models.ZoneType.BLOCKED:
+            if neighbor_type == models.ZoneType.BLOCKED:
                 continue
 
-            if graph.zones[neighbor].zone_type == models.ZoneType.RESTRICTED:
+            if neighbor_type == models.ZoneType.RESTRICTED:
                 movement_cost = 2
             else:
                 movement_cost = 1
@@ -44,6 +45,12 @@ def find_path(graph: models.Graph, start: str, end: str) -> list[str]:
 
             if new_distance < distances[neighbor]:
                 distances[neighbor] = new_distance
+                previous[neighbor] = current
+
+            elif (
+                new_distance == distances[neighbor]
+                and neighbor_type == models.ZoneType.PRIORITY
+            ):
                 previous[neighbor] = current
 
     if distances[end] == float("inf"):

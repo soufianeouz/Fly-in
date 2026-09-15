@@ -30,6 +30,7 @@ def extract_metadata(value):
             sys.exit(1)
 
         metadata = metadata.rstrip("]").strip()
+
         meta_parts = metadata.split()
     else:
         data = value
@@ -62,6 +63,7 @@ def parse_zone(key, data, meta_parts, dup_start_check, dup_end_check):
         sys.exit(1)
 
     if "-" in parts_zone[0]:
+
         print("Error: zone name cannot contain '-'")
         sys.exit(1)
 
@@ -94,12 +96,13 @@ def parse_zone(key, data, meta_parts, dup_start_check, dup_end_check):
             try:
                 zone_type = models.ZoneType(meta_value)
             except ValueError:
+
                 print(f"Error: invalid zone type '{meta_value}'")
                 sys.exit(1)
         else:
             print("Error: unknown metadata")
             sys.exit(1)
-
+    # if zone == "st/
     zone = models.Zone(
         name=zone_name,
         x=x,
@@ -126,6 +129,7 @@ def parse_connection(data, meta_parts, zones, connections_seen):
     if zone2 not in zones:
         print(f"Error: zone '{zone2}' is not defined")
         sys.exit(1)
+
     if zone1 == zone2:
         print("Error: a zone cannot connect to itself")
         sys.exit(1)
@@ -158,6 +162,7 @@ def parse_connection(data, meta_parts, zones, connections_seen):
         max_link_capacity = int(meta_value)
 
         if max_link_capacity <= 0:
+
             print("Error: max_link_capacity must be positive")
             sys.exit(1)
 
@@ -210,17 +215,22 @@ def parse_map(map_file):
                 )
                 if key == "start_hub":
                     start_name = zone_name
-                    
+                    zone.max_drones = nb_drones
+
                 elif key == "end_hub":
                     end_name = zone_name
-    
+                    zone.max_drones = nb_drones
+
                 if zone_name in zones:
                     print(f"Error: duplicate zone name '{zone_name}'")
                     sys.exit(1)
                 zones[zone_name] = zone
 
             elif key == "connection" and flage == 1:
-                connection = parse_connection(data, meta_parts, zones, connections_seen)
+                connection = parse_connection(
+                    data, meta_parts, zones, connections_seen
+
+                )
                 connections.append(connection)
             else:
                 print(f"Error: unknown key '{key}'")
@@ -241,6 +251,8 @@ def parse_map(map_file):
         print("Error: invalid values input!")
         sys.exit(1)
 
-    graph = models.Graph(zones=zones, connections=connections, start=start_name, end=end_name)
-    
+    graph = models.Graph(
+        zones=zones, connections=connections, start=start_name, end=end_name
+    )
+
     return {"nb_drones": nb_drones, "graph": graph}

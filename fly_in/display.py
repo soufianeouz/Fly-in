@@ -25,31 +25,24 @@ def colorize(text: str, color: str | None) -> str:
     Returns:
         The text wrapped in ANSI codes, resetting color afterward.
     """
-    code = ANSI_COLORS.get(color, DEFAULT_COLOR) if color else DEFAULT_COLOR
+    code = ANSI_COLORS.get(color, DEFAULT_COLOR)
     return f"{code}{text}{RESET}"
 
 
 def format_zone(zone: Zone, drones: list[Drone]) -> str:
-    """Format one zone's display block: its name, color, and occupants.
+    occupants = []
 
-    Args:
-        zone: The zone to display.
-        drones: All drones in the simulation, to find who is here.
+    for drone in drones:
+        if drone.current_zone() == zone.name:
+            occupants.append(drone.id)
+    nb = len(occupants)
+    occupants = ", ".join(occupants)
 
-    Returns:
-        A formatted string like "waypoint1 [D1, D2]".
-    """
-    occupants = [
-        d.id for d in drones
-        if not d.delivered and d.current_zone() == zone.name
-    ]
-    if zone.name == "END_PLACEHOLDER":
-        pass  # unused, kept for clarity that end zone uses same logic
-    occ_str = ", ".join(occupants) if occupants else " "
-    return f"{colorize(zone.name, zone.color)} [{occ_str}]"
+    return f"{colorize(zone.name, zone.color)} [{occupants}]"
 
-
-def print_turn(graph: Graph, drones: list[Drone], path: list[str], turn: int) -> None:
+def print_turn(
+    graph: Graph, drones: list[Drone], path: list[str], turn: int
+) -> None:
     """Print one turn's state as a colored chain of zones.
 
     Args:
@@ -58,6 +51,16 @@ def print_turn(graph: Graph, drones: list[Drone], path: list[str], turn: int) ->
         path: The ordered list of zone names to display (start to end).
         turn: The current turn number.
     """
-    print(f"Turn {turn}")
-    blocks = [format_zone(graph.zones[name], drones) for name in path]
+    if turn == 0:
+        print("Initial state:")
+    else:
+        print(f"Turn {turn}")
+
+    blocks = []
+
+    for name in path:
+        zone = graph.zones[name]
+        block = format_zone(zone, drones)
+        blocks.append(block)
+
     print(" -> ".join(blocks))
